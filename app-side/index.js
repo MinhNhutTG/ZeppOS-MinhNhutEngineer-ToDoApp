@@ -12,19 +12,21 @@ AppSideService(
         const raw = this.settings.getItem('todo_tasks')
         res(null, { tasks: raw || null })
       } else if (req.method === 'SAVE_TASKS') {
-        if (req.tasks) {
-          this.settings.setItem('todo_tasks', req.tasks)
-        }
+        if (req.tasks) this.settings.setItem('todo_tasks', req.tasks)
+        res(null, { ok: true })
+      } else if (req.method === 'GET_THEME') {
+        const raw = this.settings.getItem('todo_theme')
+        res(null, { theme: raw || 'sky' })
+      } else if (req.method === 'SAVE_THEME') {
+        if (req.theme) this.settings.setItem('todo_theme', req.theme)
         res(null, { ok: true })
       }
     },
 
     onSettingsChange({ key, newValue }) {
-      if (key === 'todo_suggestions') {
-        this.call({ suggestions: newValue })
-      } else if (key === 'todo_tasks') {
-        this.call({ tasks: newValue })
-      }
+      if (key === 'todo_suggestions') this.call({ suggestions: newValue })
+      else if (key === 'todo_tasks')   this.call({ tasks: newValue })
+      else if (key === 'todo_theme')   this.call({ theme: newValue })
     },
 
     onRun() {},

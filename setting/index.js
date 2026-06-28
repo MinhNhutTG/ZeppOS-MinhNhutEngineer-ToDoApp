@@ -5,11 +5,27 @@ const DEFAULT_SUGGESTIONS = [
   'Read book',
 ]
 
+// Keep in sync with page/themeConfig.js THEMES — same hex values, CSS format
+const hex = (n) => '#' + n.toString(16).padStart(6, '0').toUpperCase()
+const PHONE_THEMES = [
+  { name: 'sky',    label: 'Sky',    css: hex(0x4FA8FF) },
+  { name: 'aqua',   label: 'Aqua',   css: hex(0x37D4DF) },
+  { name: 'mint',   label: 'Mint',   css: hex(0x3FE0A8) },
+  { name: 'lime',   label: 'Lime',   css: hex(0xA6E22E) },
+  { name: 'gold',   label: 'Gold',   css: hex(0xFFD24A) },
+  { name: 'ember',  label: 'Ember',  css: hex(0xF2A24A) },
+  { name: 'coral',  label: 'Coral',  css: hex(0xFF7A59) },
+  { name: 'rose',   label: 'Rose',   css: hex(0xFF6B8A) },
+  { name: 'violet', label: 'Violet', css: hex(0xC56BFF) },
+  { name: 'iris',   label: 'Iris',   css: hex(0xA695F8) },
+]
+
 AppSettingsPage({
   state: {
     suggestions: [],
     tasks: [],
     nextId: 1,
+    theme: 'sky',
     props: {},
   },
 
@@ -22,13 +38,15 @@ AppSettingsPage({
     const rawTasks = props.settingsStorage.getItem('todo_tasks')
     if (rawTasks) {
       const parsed = JSON.parse(rawTasks)
-      this.state.tasks = parsed.tasks || []
+      this.state.tasks  = parsed.tasks  || []
       this.state.nextId = parsed.nextId || 1
     } else {
-      this.state.tasks = []
+      this.state.tasks  = []
       this.state.nextId = 1
     }
 
+    const rawTheme = props.settingsStorage.getItem('todo_theme')
+    this.state.theme = rawTheme || 'sky'
   },
 
   saveSuggestions() {
@@ -43,6 +61,11 @@ AppSettingsPage({
       'todo_tasks',
       JSON.stringify({ tasks: this.state.tasks, nextId: this.state.nextId })
     )
+  },
+
+  setTheme(name) {
+    this.state.theme = name
+    this.state.props.settingsStorage.setItem('todo_theme', name)
   },
 
   toggleTask(id) {
@@ -60,11 +83,7 @@ AppSettingsPage({
   addTask(val) {
     const title = val.trim()
     if (!title) return
-    this.state.tasks = [...this.state.tasks, {
-      id: this.state.nextId++,
-      title,
-      done: false,
-    }]
+    this.state.tasks = [...this.state.tasks, { id: this.state.nextId++, title, done: false }]
     this.saveTasks()
   },
 
@@ -90,60 +109,70 @@ AppSettingsPage({
   build(props) {
     this.setState(props)
 
+    const accentCss = (PHONE_THEMES.find(t => t.name === this.state.theme) || PHONE_THEMES[0]).css
     const done  = this.state.tasks.filter(t => t.done).length
     const total = this.state.tasks.length
 
+    // ── Theme swatches ──
+    const themeSwatches = PHONE_THEMES.map(t => {
+      const isActive = this.state.theme === t.name
+      return Button({
+        label: t.label,
+        style: {
+          background: t.css,
+          color: '#fff',
+          border: isActive ? '3px solid #111' : '3px solid transparent',
+          borderRadius: '20px',
+          fontSize: '13px',
+          padding: '5px 12px',
+          marginRight: '8px',
+          marginBottom: '8px',
+          fontWeight: isActive ? 'bold' : 'normal',
+          opacity: isActive ? '1' : '0.75',
+        },
+        onClick: () => this.setTheme(t.name),
+      })
+    })
+
+    // ── Task rows ──
     const taskRows = this.state.tasks.map((task) =>
       View(
         {
           style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderBottom: '1px solid #eaeaea',
-            padding: '8px 0',
+            display: 'flex', flexDirection: 'row', alignItems: 'center',
+            borderBottom: '1px solid #eaeaea', padding: '8px 0',
           },
         },
         [
           Button({
             label: task.done ? '✓' : '○',
             style: {
-              fontSize: '16px',
-              minWidth: '36px',
-              height: '36px',
+              fontSize: '16px', minWidth: '36px', height: '36px',
               borderRadius: '18px',
-              background: task.done ? '#4E8EF7' : '#e0e0e0',
+              background: task.done ? accentCss : '#e0e0e0',
               color: task.done ? 'white' : '#555',
-              marginRight: '10px',
-              border: 'none',
+              marginRight: '10px', border: 'none',
             },
             onClick: () => this.toggleTask(task.id),
           }),
-          View(
-            { style: { flex: 1 } },
-            [
-              TextInput({
-                label: '',
-                value: task.title,
-                subStyle: {
-                  color: task.done ? '#aaa' : '#222',
-                  fontSize: '14px',
-                  textDecoration: task.done ? 'line-through' : 'none',
-                },
-                maxLength: 50,
-                onChange: () => {},
-              }),
-            ]
-          ),
+          View({ style: { flex: 1 } }, [
+            TextInput({
+              label: '', value: task.title,
+              subStyle: {
+                color: task.done ? '#aaa' : '#222',
+                fontSize: '14px',
+                textDecoration: task.done ? 'line-through' : 'none',
+              },
+              maxLength: 50,
+              onChange: () => {},
+            }),
+          ]),
           Button({
             label: 'Del',
             style: {
-              fontSize: '12px',
-              borderRadius: '20px',
-              background: '#D85E33',
-              color: 'white',
-              marginLeft: '8px',
-              border: 'none',
+              fontSize: '12px', borderRadius: '20px',
+              background: '#D85E33', color: 'white',
+              marginLeft: '8px', border: 'none',
             },
             onClick: () => this.deleteTask(task.id),
           }),
@@ -151,22 +180,19 @@ AppSettingsPage({
       )
     )
 
+    // ── Suggestion rows ──
     const suggestionRows = this.state.suggestions.map((item, i) =>
       View(
         {
           style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderBottom: '1px solid #eaeaea',
-            padding: '6px 0',
+            display: 'flex', flexDirection: 'row', alignItems: 'center',
+            borderBottom: '1px solid #eaeaea', padding: '6px 0',
           },
         },
         [
           View({ style: { flex: 1 } }, [
             TextInput({
-              label: '',
-              value: item,
+              label: '', value: item,
               subStyle: { color: '#333', fontSize: '14px' },
               maxLength: 30,
               onChange: (val) => this.editSuggestion(i, val),
@@ -175,12 +201,9 @@ AppSettingsPage({
           Button({
             label: 'Delete',
             style: {
-              fontSize: '12px',
-              borderRadius: '30px',
-              background: '#D85E33',
-              color: 'white',
-              marginLeft: '8px',
-              border: 'none',
+              fontSize: '12px', borderRadius: '30px',
+              background: '#D85E33', color: 'white',
+              marginLeft: '8px', border: 'none',
             },
             onClick: () => this.removeSuggestion(i),
           }),
@@ -191,19 +214,30 @@ AppSettingsPage({
     return View(
       { style: { padding: '16px 20px' } },
       [
+        // ── Theme section ──
+        View(
+          { style: { marginBottom: '20px' } },
+          [
+            View(
+              { style: { fontSize: '17px', fontWeight: 'bold', color: '#222', marginBottom: '10px' } },
+              ['Watch Theme Color']
+            ),
+            View(
+              { style: { display: 'flex', flexDirection: 'row', flexWrap: 'wrap' } },
+              themeSwatches
+            ),
+          ]
+        ),
+
+        // ── Divider ──
+        View({ style: { borderTop: '2px solid #ddd', marginBottom: '20px' } }, []),
+
         // ── Tasks section ──
         View(
           { style: { marginBottom: '8px' } },
           [
             View(
-              {
-                style: {
-                  fontSize: '17px',
-                  fontWeight: 'bold',
-                  color: '#222',
-                  marginBottom: '4px',
-                },
-              },
+              { style: { fontSize: '17px', fontWeight: 'bold', color: '#222', marginBottom: '4px' } },
               [`Tasks  ${done}/${total} done`]
             ),
           ]
@@ -223,11 +257,8 @@ AppSettingsPage({
           ? View(
               {
                 style: {
-                  border: '1px solid #eaeaea',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  background: 'white',
-                  marginBottom: '24px',
+                  border: '1px solid #eaeaea', borderRadius: '6px',
+                  padding: '4px 10px', background: 'white', marginBottom: '24px',
                 },
               },
               taskRows
@@ -235,21 +266,15 @@ AppSettingsPage({
           : View(
               {
                 style: {
-                  padding: '14px 0',
-                  color: '#aaa',
-                  fontSize: '13px',
-                  textAlign: 'center',
-                  marginBottom: '24px',
+                  padding: '14px 0', color: '#aaa', fontSize: '13px',
+                  textAlign: 'center', marginBottom: '24px',
                 },
               },
               ['No tasks yet. Add from here or from your watch.']
             ),
 
         // ── Divider ──
-        View(
-          { style: { borderTop: '2px solid #ddd', marginBottom: '20px' } },
-          []
-        ),
+        View({ style: { borderTop: '2px solid #ddd', marginBottom: '20px' } }, []),
 
         // ── Suggestions section ──
         View(
@@ -273,10 +298,8 @@ AppSettingsPage({
           View(
             {
               style: {
-                border: '1px solid #eaeaea',
-                borderRadius: '6px',
-                padding: '4px 10px',
-                background: 'white',
+                border: '1px solid #eaeaea', borderRadius: '6px',
+                padding: '4px 10px', background: 'white',
               },
             },
             suggestionRows
